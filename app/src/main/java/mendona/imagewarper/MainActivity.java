@@ -2,11 +2,12 @@ package mendona.imagewarper;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -18,12 +19,38 @@ public class MainActivity extends AppCompatActivity {
 
     static final int REQUEST_LOAD_IMAGE = 12;
 
+    private class Coord {
+        int x;
+        int y;
+
+        Coord(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        Coord(float x, float y) {
+            this.x = Math.round(x);
+            this.y = Math.round(y);
+        }
+    }
+
     private Bitmap currentBitmap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        ImageView imageView = (ImageView) findViewById(R.id.currentImageView);
+        imageView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    testTransformation(new Coord(event.getX(), event.getY()));
+                }
+                return true;
+            }
+        });
     }
 
     @Override
@@ -63,5 +90,33 @@ public class MainActivity extends AppCompatActivity {
         if (loadPictureIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(loadPictureIntent, REQUEST_LOAD_IMAGE);
         }
+    }
+
+    public Coord screenCoord2BitmapCoord(Coord original) {
+        ImageView imageView = (ImageView) findViewById(R.id.currentImageView);
+
+        int xInsideView = original.x - imageView.getLeft();
+        int yInsideView = original.y - imageView.getTop();
+
+        int x = xInsideView * currentBitmap.getWidth() / imageView.getWidth();
+        int y = yInsideView * currentBitmap.getHeight() / imageView.getHeight();
+
+        return new Coord(x, y);
+    }
+
+    public void testTransformation(Coord clickPoint) {
+        Coord point = screenCoord2BitmapCoord(clickPoint);
+        Bitmap nextBitmap = currentBitmap.copy(currentBitmap.getConfig(), true);
+
+        for (int i = 0; i < nextBitmap.getHeight(); i++) {
+            nextBitmap.setPixel(point.x, i, Color.RED);
+        }
+
+        for (int j = 0; j < nextBitmap.getWidth(); j++) {
+            nextBitmap.setPixel(j, point.y, Color.RED);
+        }
+
+        currentBitmap = nextBitmap;
+        updateScreenImage();
     }
 }
