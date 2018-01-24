@@ -1,8 +1,8 @@
 package mendona.imagewarper;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -34,19 +34,26 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private enum TransformType {
+        BLUR,
+        TEST,
+        BULGE_FILTER
+    }
+
     private Bitmap currentBitmap;
+    private ImageView currentImageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ImageView imageView = (ImageView) findViewById(R.id.currentImageView);
-        imageView.setOnTouchListener(new View.OnTouchListener() {
+        currentImageView = (ImageView) findViewById(R.id.currentImageView);
+        currentImageView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    testTransformation(new Coord(event.getX(), event.getY()));
+                    doTransform(TransformType.TEST);
                 }
                 return true;
             }
@@ -59,22 +66,14 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             Bundle extras = data.getExtras();
             currentBitmap = (Bitmap) extras.get("data");
-            updateScreenImage();
-        }
-
-        if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
+        } else if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
             Uri selectedImageUri = data.getData();
             try {
                 currentBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), selectedImageUri);
             } catch (IOException ioe) {
                 throw new RuntimeException("Could not load the file at " + selectedImageUri, ioe);
             }
-            updateScreenImage();
         }
-    }
-
-    private void updateScreenImage() {
-        ImageView currentImageView = (ImageView) findViewById(R.id.currentImageView);
         currentImageView.setImageBitmap(currentBitmap);
     }
 
@@ -104,19 +103,67 @@ public class MainActivity extends AppCompatActivity {
         return new Coord(x, y);
     }
 
-    public void testTransformation(Coord clickPoint) {
-        Coord point = screenCoord2BitmapCoord(clickPoint);
-        Bitmap nextBitmap = currentBitmap.copy(currentBitmap.getConfig(), true);
+    public void bulgeFilterTransform(Bitmap bm) {
+        for (int x = 0; x < currentBitmap.getWidth(); x++) {
+            final double x_d = (double) x;
+            for (int y = 0; y < currentBitmap.getHeight(); y++) {
+                final double y_d = (double) y;
 
-        for (int i = 0; i < nextBitmap.getHeight(); i++) {
-            nextBitmap.setPixel(point.x, i, Color.RED);
+                double r = Math.sqrt(Math.pow(x_d - 0.5, 2) + Math.pow(y_d - 0.5, 2));
+                double rn = Math.pow(r, 2.5) / 0.5;
+
+                double u_d = rn * (x_d - 0.5) / r + 0.5;
+                double v_d = rn * (y_d - 0.5) / r + 0.5;
+
+                int u = (int) Math.round(u_d);
+                int v = (int) Math.round(v_d);
+
+                if (u >= 0 && u <= bm.getWidth() && v >= 0 && v <= bm.getHeight()) {
+                    bm.setPixel(u, v, currentBitmap.getPixel(x, y));
+                }
+            }
         }
+    }
 
-        for (int j = 0; j < nextBitmap.getWidth(); j++) {
-            nextBitmap.setPixel(j, point.y, Color.RED);
+    public void testTransform(Bitmap bm) {
+        for (int x = 0; x < currentBitmap.getWidth(); x++) {
+            for (int y = 0; y < currentBitmap.getHeight(); y++) {
+                int u = x + 30;
+                int v = y + 40;
+                if (u >= 0 && u < bm.getWidth() && v >= 0 && v < bm.getHeight()) {
+                    bm.setPixel(u, v, currentBitmap.getPixel(x, y));
+                }
+            }
         }
+    }
 
-        currentBitmap = nextBitmap;
-        updateScreenImage();
+    public void doTransform(final TransformType type) {
+
+        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
+        final ProgressDialog loading = ProgressDialog.show(MainActivity.this, "Loading", "Loading...", true, false);
+
+        Thread th = new Thread() {
+            @Override
+            public void run() {
+                switch (type) {
+                    case TEST:
+                        testTransform(bm);
+                        break;
+                    case BULGE_FILTER:
+                        bulgeFilterTransform(bm);
+                        break;
+                }
+                loading.dismiss();
+                currentBitmap = bm;
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        currentImageView.setImageBitmap(currentBitmap);
+                    }
+                });
+            }
+        };
+
+        th.start();
     }
 }
