@@ -3,6 +3,7 @@ package mendona.imagewarper;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -53,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    doTransform(TransformType.TEST);
+                    doTransform(TransformType.BLUR);
                 }
                 return true;
             }
@@ -103,7 +104,45 @@ public class MainActivity extends AppCompatActivity {
         return new Coord(x, y);
     }
 
-    public void bulgeFilterTransform(Bitmap bm) {
+    public Bitmap blurTransform() {
+        Bitmap bm = Bitmap.createScaledBitmap(currentBitmap,
+                                              Math.max(currentBitmap.getWidth()/4, 4),
+                                              Math.max(currentBitmap.getHeight()/4, 4),
+                                              false);
+
+        int[] src = new int[bm.getWidth()*bm.getHeight()];
+        int[] dst = new int[bm.getWidth()*bm.getHeight()];
+
+        bm.getPixels(src, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
+
+        for (int x = 0; x < bm.getHeight(); x++) {
+            for (int y = 0; y < bm.getWidth(); y++) {
+                int alpha = 0, red = 0, green = 0, blue = 0;
+                int wSize = 0;
+
+                for (int wx = Math.max(x-1, 0); wx < Math.min(x+2, bm.getHeight()); wx++) {
+                    for (int wy = Math.max(y-1, 0); wy < Math.min(y+2, bm.getWidth()); wy++) {
+                        final int pixel = src[wx*bm.getWidth() + wy];
+                        alpha += Color.alpha(pixel);
+                        red += Color.red(pixel);
+                        green += Color.green(pixel);
+                        blue += Color.blue(pixel);
+                        wSize++;
+                    }
+                }
+
+                dst[x*bm.getWidth() + y] = Color.argb(alpha/wSize, red/wSize, green/wSize, blue/wSize);
+            }
+        }
+
+        bm.setPixels(dst, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
+
+        return bm;
+    }
+
+    public Bitmap bulgeFilterTransform() {
+        // TODO: fix
+        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
         for (int x = 0; x < currentBitmap.getWidth(); x++) {
             final double x_d = (double) x;
             for (int y = 0; y < currentBitmap.getHeight(); y++) {
@@ -123,9 +162,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+
+        return bm;
     }
 
-    public void testTransform(Bitmap bm) {
+    public Bitmap testTransform() {
+        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
         for (int x = 0; x < currentBitmap.getWidth(); x++) {
             for (int y = 0; y < currentBitmap.getHeight(); y++) {
                 int u = x + 30;
@@ -135,11 +177,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        return bm;
     }
 
     public void doTransform(final TransformType type) {
 
-        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
         final ProgressDialog loading = ProgressDialog.show(MainActivity.this, "Loading", "Loading...", true, false);
 
         Thread th = new Thread() {
@@ -147,14 +189,16 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 switch (type) {
                     case TEST:
-                        testTransform(bm);
+                        currentBitmap = testTransform();
+                        break;
+                    case BLUR:
+                        currentBitmap = blurTransform();
                         break;
                     case BULGE_FILTER:
-                        bulgeFilterTransform(bm);
+                        currentBitmap = bulgeFilterTransform();
                         break;
                 }
                 loading.dismiss();
-                currentBitmap = bm;
                 MainActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
