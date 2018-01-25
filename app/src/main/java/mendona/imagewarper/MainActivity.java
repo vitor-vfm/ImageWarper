@@ -8,7 +8,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -36,9 +35,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private enum TransformType {
+        TEST,
         BLUR,
         ZOOM,
-        TEST
+        BLACK_AND_WHITE
     }
 
     private Bitmap currentBitmap;
@@ -50,19 +50,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         currentImageView = (ImageView) findViewById(R.id.currentImageView);
-//        currentImageView.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View view, MotionEvent event) {
-//                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-//                    doTransform(TransformType.ZOOM);
-//                }
-//                return true;
-//            }
-//        });
         currentImageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                doTransform(TransformType.ZOOM);
+                doTransform(TransformType.BLACK_AND_WHITE);
             }
         });
         currentImageView.setOnLongClickListener(new View.OnLongClickListener() {
@@ -214,6 +205,20 @@ public class MainActivity extends AppCompatActivity {
         return bm;
     }
 
+    public Bitmap blackAndWhiteTransform() {
+        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
+        int[] buf = new int[bm.getWidth()*bm.getHeight()];
+        bm.getPixels(buf, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
+
+        for (int p = 0; p < bm.getWidth()*bm.getHeight(); p++) {
+            int luma = (int)(0.299*Color.red(buf[p]) + 0.587*Color.green(buf[p]) + 0.114*Color.blue(buf[p]));
+            buf[p] = Color.argb(Color.alpha(buf[p]), luma, luma, luma);
+        }
+
+        bm.setPixels(buf, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
+        return bm;
+    }
+
     public Bitmap testTransform() {
         final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
         for (int x = 0; x < currentBitmap.getWidth(); x++) {
@@ -244,6 +249,10 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case ZOOM:
                         currentBitmap = zoomTransform();
+                        break;
+                    case BLACK_AND_WHITE:
+                        currentBitmap = blackAndWhiteTransform();
+                        break;
                 }
                 loading.dismiss();
                 MainActivity.this.runOnUiThread(new Runnable() {
