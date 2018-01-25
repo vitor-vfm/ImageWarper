@@ -37,8 +37,8 @@ public class MainActivity extends AppCompatActivity {
 
     private enum TransformType {
         BLUR,
-        TEST,
-        BULGE_FILTER
+        ZOOM,
+        TEST
     }
 
     private Bitmap currentBitmap;
@@ -50,15 +50,32 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         currentImageView = (ImageView) findViewById(R.id.currentImageView);
-        currentImageView.setOnTouchListener(new View.OnTouchListener() {
+//        currentImageView.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View view, MotionEvent event) {
+//                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+//                    doTransform(TransformType.ZOOM);
+//                }
+//                return true;
+//            }
+//        });
+        currentImageView.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onTouch(View view, MotionEvent event) {
-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    doTransform(TransformType.BLUR);
-                }
+            public void onClick(View v) {
+                doTransform(TransformType.ZOOM);
+            }
+        });
+        currentImageView.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                doTransform(TransformType.BLUR);
                 return true;
             }
         });
+    }
+
+    private Bitmap scaleImage(Bitmap image) {
+        return Bitmap.createScaledBitmap(image, currentImageView.getWidth(), currentImageView.getHeight(), false);
     }
 
     @Override
@@ -70,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
             Uri selectedImageUri = data.getData();
             try {
-                currentBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), selectedImageUri);
+                currentBitmap = scaleImage(MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImageUri));
             } catch (IOException ioe) {
                 throw new RuntimeException("Could not load the file at " + selectedImageUri, ioe);
             }
@@ -140,29 +157,60 @@ public class MainActivity extends AppCompatActivity {
         return bm;
     }
 
-    public Bitmap bulgeFilterTransform() {
+    private void zoomCoordinateChange(int x, int y, int x_c, int y_c, double factor, int[] res) {
+        final double x_d = (double) (x - x_c);
+        final double y_d = (double) (y - y_c);
+
+        final double r = Math.sqrt(Math.pow(x_d, 2) + Math.pow(y_d, 2));
+        final double rn = r * factor;
+
+        final double u_d = rn * (x_d / r);
+        final double v_d = rn * (y_d / r);
+
+        res[0] = ((int)Math.round(u_d)) + x_c;
+        res[1] = ((int)Math.round(v_d)) + y_c;
+    }
+
+    public Bitmap zoomTransform() {
         // TODO: fix
+        final double zoomFactor = 1.25;
         final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
-        for (int x = 0; x < currentBitmap.getWidth(); x++) {
-            final double x_d = (double) x;
-            for (int y = 0; y < currentBitmap.getHeight(); y++) {
-                final double y_d = (double) y;
 
-                double r = Math.sqrt(Math.pow(x_d - 0.5, 2) + Math.pow(y_d - 0.5, 2));
-                double rn = Math.pow(r, 2.5) / 0.5;
+        int[] src = new int[bm.getWidth()*bm.getHeight()];
+        currentBitmap.getPixels(src, 0, currentBitmap.getWidth(), 0, 0, currentBitmap.getWidth(), currentBitmap.getHeight());
 
-                double u_d = rn * (x_d - 0.5) / r + 0.5;
-                double v_d = rn * (y_d - 0.5) / r + 0.5;
+        int[] dst = new int[bm.getWidth()*bm.getHeight()];
 
-                int u = (int) Math.round(u_d);
-                int v = (int) Math.round(v_d);
+        final int x_centre = bm.getHeight() / 2;
+        final int y_centre = bm.getWidth() / 2;
 
-                if (u >= 0 && u <= bm.getWidth() && v >= 0 && v <= bm.getHeight()) {
-                    bm.setPixel(u, v, currentBitmap.getPixel(x, y));
+        final int[] newCoord = new int[2];
+
+        for (int x = 0; x < currentBitmap.getHeight(); x++) {
+            for (int y = 0; y < currentBitmap.getWidth(); y++) {
+                zoomCoordinateChange(x, y, x_centre, y_centre, zoomFactor, newCoord);
+                final int u = newCoord[0];
+                final int v = newCoord[1];
+
+                if (u >= 0 && u < bm.getHeight() && v >= 0 && v < bm.getWidth()) {
+                    dst[u * bm.getWidth() + v] = src[x * bm.getWidth() + y];
                 }
             }
         }
 
+        for (int u = 0; u < bm.getHeight(); u++) {
+            for (int v = 0; v < bm.getWidth(); v++) {
+                if (dst[u * bm.getWidth() + v] == 0) {
+                    zoomCoordinateChange(u, v, x_centre, y_centre, 1/zoomFactor, newCoord);
+                    final int x = newCoord[0];
+                    final int y = newCoord[1];
+
+                    dst[u * bm.getWidth() + v] = src[x * bm.getWidth() + y];
+                }
+            }
+        }
+
+        bm.setPixels(dst, 0, bm.getWidth(), 0, 0, bm.getWidth(), bm.getHeight());
         return bm;
     }
 
@@ -182,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void doTransform(final TransformType type) {
 
-        final ProgressDialog loading = ProgressDialog.show(MainActivity.this, "Loading", "Loading...", true, false);
+        final ProgressDialog loading = ProgressDialog.show(MainActivity.this, null, "Loading...", true, false);
 
         Thread th = new Thread() {
             @Override
@@ -194,9 +242,8 @@ public class MainActivity extends AppCompatActivity {
                     case BLUR:
                         currentBitmap = blurTransform();
                         break;
-                    case BULGE_FILTER:
-                        currentBitmap = bulgeFilterTransform();
-                        break;
+                    case ZOOM:
+                        currentBitmap = zoomTransform();
                 }
                 loading.dismiss();
                 MainActivity.this.runOnUiThread(new Runnable() {
