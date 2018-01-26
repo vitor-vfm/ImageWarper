@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -38,7 +39,8 @@ public class MainActivity extends AppCompatActivity {
         TEST,
         BLUR,
         ZOOM,
-        BLACK_AND_WHITE
+        BLACK_AND_WHITE,
+        VORTEX
     }
 
     private Bitmap currentBitmap;
@@ -59,14 +61,18 @@ public class MainActivity extends AppCompatActivity {
         currentImageView.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                doTransform(TransformType.BLUR);
+                doTransform(TransformType.VORTEX);
                 return true;
             }
         });
     }
 
     private Bitmap scaleImage(Bitmap image) {
-        return Bitmap.createScaledBitmap(image, currentImageView.getWidth(), currentImageView.getHeight(), false);
+        final Bitmap scaled = Bitmap.createScaledBitmap(image, image.getWidth() / 4, image.getHeight() / 4, false);
+        Matrix m = new Matrix();
+        m.postRotate(90);
+        return Bitmap.createBitmap(scaled, 0, 0, scaled.getWidth(), scaled.getHeight(), m, true);
+
     }
 
     @Override
@@ -163,7 +169,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public Bitmap zoomTransform() {
-        // TODO: fix
         final double zoomFactor = 1.25;
         final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
 
@@ -219,6 +224,46 @@ public class MainActivity extends AppCompatActivity {
         return bm;
     }
 
+    public Bitmap vortexTransform() {
+        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
+
+        int[] src = new int[bm.getWidth()*bm.getHeight()];
+        currentBitmap.getPixels(src, 0, currentBitmap.getWidth(), 0, 0, currentBitmap.getWidth(), currentBitmap.getHeight());
+
+        int[] dst = new int[bm.getWidth()*bm.getHeight()];
+
+        final int x_c = bm.getHeight() / 2;
+        final int y_c = bm.getWidth() / 2;
+
+        final double maxRadius = Math.min(bm.getHeight(), bm.getWidth()) / 2;
+
+        for (int x = 0; x < bm.getHeight(); x++) {
+            for (int y = 0; y < bm.getWidth(); y++) {
+                final double x_d = (double) (x - x_c);
+                final double y_d = (double) (y - y_c);
+
+                final double r = Math.sqrt(Math.pow(x_d, 2) + Math.pow(y_d, 2));
+                final double normalizedR = r / maxRadius;
+
+                final double angle = Math.atan2(y_d, x_d);
+                final double newAngle = angle + (1/normalizedR) * Math.PI / 4;
+
+                final double u_d = Math.cos(newAngle) * r;
+                final double v_d = Math.sin(newAngle) * r;
+
+                final int u = ((int) Math.round(u_d)) + x_c;
+                final int v = ((int) Math.round(v_d)) + y_c;
+
+                if (0 <= u &&u < bm.getWidth() && 0 <= v && v < bm.getHeight()) {
+                    dst[x * bm.getWidth() + y] = src[u * bm.getWidth() + v];
+                }
+            }
+        }
+
+        bm.setPixels(dst, 0, bm.getWidth(), 0, 0, bm.getWidth(),bm.getHeight());
+        return bm;
+    }
+
     public Bitmap testTransform() {
         final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
         for (int x = 0; x < currentBitmap.getWidth(); x++) {
@@ -252,6 +297,9 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case BLACK_AND_WHITE:
                         currentBitmap = blackAndWhiteTransform();
+                        break;
+                    case VORTEX:
+                        currentBitmap = vortexTransform();
                         break;
                 }
                 loading.dismiss();
