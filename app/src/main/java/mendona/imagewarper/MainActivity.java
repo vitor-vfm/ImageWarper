@@ -20,23 +20,7 @@ public class MainActivity extends AppCompatActivity {
 
     static final int REQUEST_LOAD_IMAGE = 12;
 
-    private class Coord {
-        int x;
-        int y;
-
-        Coord(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        Coord(float x, float y) {
-            this.x = Math.round(x);
-            this.y = Math.round(y);
-        }
-    }
-
     private enum TransformType {
-        TEST,
         BLUR,
         ZOOM,
         BLACK_AND_WHITE,
@@ -104,18 +88,6 @@ public class MainActivity extends AppCompatActivity {
         if (loadPictureIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(loadPictureIntent, REQUEST_LOAD_IMAGE);
         }
-    }
-
-    public Coord screenCoord2BitmapCoord(Coord original) {
-        ImageView imageView = (ImageView) findViewById(R.id.currentImageView);
-
-        int xInsideView = original.x - imageView.getLeft();
-        int yInsideView = original.y - imageView.getTop();
-
-        int x = xInsideView * currentBitmap.getWidth() / imageView.getWidth();
-        int y = yInsideView * currentBitmap.getHeight() / imageView.getHeight();
-
-        return new Coord(x, y);
     }
 
     public Bitmap blurTransform() {
@@ -264,20 +236,6 @@ public class MainActivity extends AppCompatActivity {
         return bm;
     }
 
-    public Bitmap testTransform() {
-        final Bitmap bm = currentBitmap.copy(currentBitmap.getConfig(), true);
-        for (int x = 0; x < currentBitmap.getWidth(); x++) {
-            for (int y = 0; y < currentBitmap.getHeight(); y++) {
-                int u = x + 30;
-                int v = y + 40;
-                if (u >= 0 && u < bm.getWidth() && v >= 0 && v < bm.getHeight()) {
-                    bm.setPixel(u, v, currentBitmap.getPixel(x, y));
-                }
-            }
-        }
-        return bm;
-    }
-
     public void doTransform(final TransformType type) {
 
         final ProgressDialog loading = ProgressDialog.show(MainActivity.this, null, "Loading...", true, false);
@@ -286,9 +244,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 switch (type) {
-                    case TEST:
-                        currentBitmap = testTransform();
-                        break;
                     case BLUR:
                         currentBitmap = blurTransform();
                         break;
