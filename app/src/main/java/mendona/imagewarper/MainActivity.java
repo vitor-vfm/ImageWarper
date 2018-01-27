@@ -13,12 +13,17 @@ import android.view.View;
 import android.widget.ImageView;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class MainActivity extends AppCompatActivity {
 
     static final int REQUEST_IMAGE_CAPTURE = 1;
 
     static final int REQUEST_LOAD_IMAGE = 12;
+
+    static final int DEFAULT_UNDO_MAX = 15;
+    static final int MAXIMUM_UNDO_MAX = 20;
 
     private enum TransformType {
         BLUR,
@@ -29,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Bitmap currentBitmap;
     private ImageView currentImageView;
+    private Deque<Bitmap> previousBitmaps;
+    private int undoMax;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +56,29 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
         });
+
+        undoMax = DEFAULT_UNDO_MAX;
+        previousBitmaps = new ArrayDeque<>();
+    }
+
+    public void undoTransform(View view) {
+        if (previousBitmaps.isEmpty())
+            return;
+
+        currentBitmap = previousBitmaps.peekFirst();
+        previousBitmaps.removeFirst();
+        currentImageView.setImageBitmap(currentBitmap);
+    }
+
+    private void pushUndo(Bitmap bitmap) {
+        if (bitmap == null)
+            return;
+
+        while (previousBitmaps.size() >= undoMax) {
+            previousBitmaps.removeLast();
+        }
+
+        previousBitmaps.addFirst(bitmap);
     }
 
     private Bitmap scaleImage(Bitmap image) {
@@ -62,10 +92,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            Bundle extras = data.getExtras();
-            currentBitmap = (Bitmap) extras.get("data");
-        } else if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
+        if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
             Uri selectedImageUri = data.getData();
             try {
                 currentBitmap = scaleImage(MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImageUri));
@@ -74,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         currentImageView.setImageBitmap(currentBitmap);
+        previousBitmaps.clear();
     }
 
     public void takePicture(View view) {
@@ -243,6 +271,7 @@ public class MainActivity extends AppCompatActivity {
         Thread th = new Thread() {
             @Override
             public void run() {
+                pushUndo(currentBitmap);
                 switch (type) {
                     case BLUR:
                         currentBitmap = blurTransform();
