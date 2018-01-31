@@ -121,11 +121,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Bitmap scaleImage(Bitmap image) {
-        final Bitmap scaled = Bitmap.createScaledBitmap(image, image.getWidth() / 4, image.getHeight() / 4, false);
-        Matrix m = new Matrix();
-        m.postRotate(90);
-        return Bitmap.createBitmap(scaled, 0, 0, scaled.getWidth(), scaled.getHeight(), m, true);
+        if (image.getWidth() > image.getHeight()) {
+            // rotate
+            final Matrix m = new Matrix();
+            m.postRotate(90);
+            image = Bitmap.createBitmap(image, 0, 0, image.getWidth(), image.getHeight(), m, true);
+        }
 
+        // downscale
+        int newWidth = image.getWidth();
+        int newHeight = image.getHeight();
+
+        while (newWidth > currentImageView.getMaxWidth() || newHeight > currentImageView.getMaxHeight()) {
+            newWidth /= 2;
+            newWidth /= 2;
+        }
+
+        return newWidth == image.getWidth() ? image : Bitmap.createScaledBitmap(image, newWidth, newHeight, false);
     }
 
     @Override
