@@ -9,16 +9,20 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.NumberPicker;
 
+import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
+import java.util.Date;
 import java.util.Deque;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Bitmap currentBitmap;
     private ImageView currentImageView;
+    private Uri currentImageUri;
     private Deque<Bitmap> previousBitmaps;
     private int undoMax;
 
@@ -123,19 +128,36 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_LOAD_IMAGE && resultCode == RESULT_OK) {
-            Uri selectedImageUri = data.getData();
-            try {
-                currentBitmap = scaleImage(MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImageUri));
-            } catch (IOException ioe) {
-                throw new RuntimeException("Could not load the file at " + selectedImageUri, ioe);
+            currentImageUri = data.getData();
+        }
+
+        try {
+            if (currentImageUri != null) {
+                currentBitmap = scaleImage(MediaStore.Images.Media.getBitmap(this.getContentResolver(), currentImageUri));
             }
+        } catch (IOException ioe) {
+            throw new RuntimeException("Could not load the file at " + currentImageUri, ioe);
         }
         currentImageView.setImageBitmap(currentBitmap);
         previousBitmaps.clear();
     }
 
+    private Uri createImageFile() {
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.CANADA).format(new Date());
+        try {
+            final File directoryPictures = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+            final File image = File.createTempFile(timeStamp, ".jpg", directoryPictures);
+            currentImageUri = Uri.fromFile(image);
+            return currentImageUri;
+        } catch (IOException ioe) {
+            throw new RuntimeException("Could not create temp file for image", ioe);
+        }
+    }
+
     public void takePicture(View view) {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        final Uri imageUri = createImageFile();
+        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
         }
@@ -260,7 +282,7 @@ public class MainActivity extends AppCompatActivity {
         int[] src = new int[bm.getWidth()*bm.getHeight()];
         currentBitmap.getPixels(src, 0, currentBitmap.getWidth(), 0, 0, currentBitmap.getWidth(), currentBitmap.getHeight());
 
-        int[] dst = new int[bm.getWidth()*bm.getHeight()];
+        int[] dst = new int[src.length];
 
         final int x_c = bm.getHeight() / 2;
         final int y_c = bm.getWidth() / 2;
@@ -284,7 +306,8 @@ public class MainActivity extends AppCompatActivity {
                 final int u = ((int) Math.round(u_d)) + x_c;
                 final int v = ((int) Math.round(v_d)) + y_c;
 
-                if (0 <= u &&u < bm.getWidth() && 0 <= v && v < bm.getHeight()) {
+                if (0 <= u && u < bm.getWidth() && 0 <= v && v < bm.getHeight()
+                    && 0 <= x && x < bm.getWidth() && 0 <= y && y < bm.getHeight()) {
                     dst[x * bm.getWidth() + y] = src[u * bm.getWidth() + v];
                 }
             }
