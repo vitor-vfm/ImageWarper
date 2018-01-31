@@ -2,6 +2,7 @@ package mendona.imagewarper;
 
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.ContentResolver;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -12,9 +13,12 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.NumberPicker;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
@@ -164,10 +168,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void loadPicture(View view) {
-        Intent loadPictureIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        final Intent loadPictureIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        loadPictureIntent.setType("image/*");
         if (loadPictureIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(loadPictureIntent, REQUEST_LOAD_IMAGE);
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.save_button, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.saveItem) {
+            final ContentResolver cr = MainActivity.this.getContentResolver();
+            MediaStore.Images.Media.insertImage(cr, currentBitmap, "warp", "Image saved from ImageWarp");
+
+            Toast.makeText(MainActivity.this, "Saved", Toast.LENGTH_SHORT).show();
+        }
+        return true;
     }
 
     public Bitmap blurTransform() {
