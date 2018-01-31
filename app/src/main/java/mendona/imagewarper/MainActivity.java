@@ -1,6 +1,8 @@
 package mendona.imagewarper;
 
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -10,7 +12,9 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.NumberPicker;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -24,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
 
     static final int DEFAULT_UNDO_MAX = 15;
     static final int MAXIMUM_UNDO_MAX = 20;
+    static final int MINIMUM_UNDO_MAX = 1;
 
     private enum TransformType {
         BLUR,
@@ -79,6 +84,31 @@ public class MainActivity extends AppCompatActivity {
         }
 
         previousBitmaps.addFirst(bitmap);
+    }
+
+    public void changeNumberUndos(View view) {
+        final AlertDialog.Builder d = new AlertDialog.Builder(MainActivity.this);
+        View dialogView = getLayoutInflater().inflate(R.layout.undo_number_picker, null);
+        d.setTitle("Change number of possible undos");
+        d.setView(dialogView);
+        final NumberPicker numberPicker = (NumberPicker) dialogView.findViewById(R.id.undoNumberPickerDialog);
+        numberPicker.setMaxValue(MAXIMUM_UNDO_MAX);
+        numberPicker.setMinValue(MINIMUM_UNDO_MAX);
+        numberPicker.setWrapSelectorWheel(false);
+        numberPicker.setValue(undoMax);
+        d.setPositiveButton("Done", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                undoMax = numberPicker.getValue();
+            }
+        });
+        d.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+            }
+        });
+        AlertDialog alertDialog = d.create();
+        alertDialog.show();
     }
 
     private Bitmap scaleImage(Bitmap image) {

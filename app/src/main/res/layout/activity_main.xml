@@ -48,5 +48,13 @@
             android:layout_weight="1"
             android:id="@+id/undoButton"
             android:onClick="undoTransform"/>
+
+        <Button
+            android:text="Preferences"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:id="@+id/preferencesButton"
+            android:onClick="changeNumberUndos"/>
     </LinearLayout>
 </LinearLayout>
