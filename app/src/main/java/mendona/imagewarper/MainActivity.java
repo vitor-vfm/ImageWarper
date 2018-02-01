@@ -1,10 +1,12 @@
 package mendona.imagewarper;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -12,6 +14,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.SyncStateContract;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -37,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     static final int DEFAULT_UNDO_MAX = 15;
     static final int MAXIMUM_UNDO_MAX = 20;
     static final int MINIMUM_UNDO_MAX = 1;
+
+    static final String PROVIDER = "mendona.imagewarper.fileprovider";
 
     private enum TransformType {
         BLUR,
@@ -158,13 +166,11 @@ public class MainActivity extends AppCompatActivity {
         previousBitmaps.clear();
     }
 
-    private Uri createImageFile() {
+    private File createImageFile() {
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.CANADA).format(new Date());
         try {
             final File directoryPictures = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-            final File image = File.createTempFile(timeStamp, ".jpg", directoryPictures);
-            currentImageUri = Uri.fromFile(image);
-            return currentImageUri;
+            return File.createTempFile(timeStamp, ".jpg", directoryPictures);
         } catch (IOException ioe) {
             throw new RuntimeException("Could not create temp file for image", ioe);
         }
@@ -172,10 +178,19 @@ public class MainActivity extends AppCompatActivity {
 
     public void takePicture(View view) {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        final Uri imageUri = createImageFile();
-        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED) {
+            final File imageFile = createImageFile();
+            final Uri imageUri = FileProvider.getUriForFile(MainActivity.this, PROVIDER, imageFile);
+            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+            currentImageUri = imageUri;
+            if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+            }
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA},
+                    1);
         }
     }
 
