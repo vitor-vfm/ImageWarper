@@ -14,7 +14,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.provider.SyncStateContract;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
@@ -65,17 +64,25 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         currentImageView = (ImageView) findViewById(R.id.currentImageView);
-        currentImageView.setOnClickListener(new View.OnClickListener() {
+        currentImageView.setOnTouchListener(new OnSwipeTouchListener(MainActivity.this) {
             @Override
-            public void onClick(View v) {
+            public void onSwipeUp() {
+                doTransform(TransformType.ZOOM);
+            }
+
+            @Override
+            public void onSwipeDown() {
                 doTransform(TransformType.BLACK_AND_WHITE);
             }
-        });
-        currentImageView.setOnLongClickListener(new View.OnLongClickListener() {
+
             @Override
-            public boolean onLongClick(View v) {
+            public void onSwipeRight() {
                 doTransform(TransformType.VORTEX);
-                return true;
+            }
+
+            @Override
+            public void onSwipeLeft() {
+                doTransform(TransformType.BLUR);
             }
         });
 
