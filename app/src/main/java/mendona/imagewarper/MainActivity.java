@@ -1,5 +1,6 @@
 package mendona.imagewarper;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
@@ -12,9 +13,12 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.view.GestureDetector;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.NumberPicker;
@@ -42,7 +46,8 @@ public class MainActivity extends AppCompatActivity {
         BLUR,
         ZOOM,
         BLACK_AND_WHITE,
-        VORTEX
+        VORTEX,
+        NONE
     }
 
     private Bitmap currentBitmap;
@@ -50,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
     private Uri currentImageUri;
     private Deque<Bitmap> previousBitmaps;
     private int undoMax;
+    private GestureDetectorCompat gestureDetector;
+    private TransformType currentTransform = TransformType.NONE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,16 +64,40 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         currentImageView = (ImageView) findViewById(R.id.currentImageView);
-        currentImageView.setOnClickListener(new View.OnClickListener() {
+
+        final GestureDetector.SimpleOnGestureListener gd = new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public void onClick(View v) {
-                doTransform(TransformType.BLACK_AND_WHITE);
+            public boolean onDoubleTap(MotionEvent e) {
+                currentTransform = TransformType.ZOOM;
+                return true;
             }
-        });
-        currentImageView.setOnLongClickListener(new View.OnLongClickListener() {
+
             @Override
-            public boolean onLongClick(View v) {
-                doTransform(TransformType.VORTEX);
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                currentTransform = TransformType.BLACK_AND_WHITE;
+                return true;
+            }
+
+            @Override
+            public void onLongPress(MotionEvent e) {
+                currentTransform = TransformType.BLUR;
+            }
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                currentTransform = TransformType.VORTEX;
+                return true;
+            }
+        };
+
+        gestureDetector = new GestureDetectorCompat(MainActivity.this, gd);
+        gestureDetector.setOnDoubleTapListener(gd);
+
+        currentImageView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                if (gestureDetector.onTouchEvent(motionEvent))
+                    doTransform(currentTransform);
                 return true;
             }
         });
