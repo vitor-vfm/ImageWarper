@@ -136,6 +136,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Bitmap scaleImage(Bitmap image) {
+        if (image == null)
+            return null;
+
         if (image.getWidth() > image.getHeight()) {
             // rotate
             final Matrix m = new Matrix();
